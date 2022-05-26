@@ -11,6 +11,10 @@ _NLP = en.English()
 DEFAULT_TOKENIZER = _NLP.tokenizer
 
 
+def character_tokenizer(string: str):
+    return iter(string)
+
+
 class Vocab:
     """Simple and inflexible vocabulary implementation."""
     def __init__(
@@ -39,7 +43,7 @@ class Vocab:
 
     @classmethod
     def load(cls, path: str) -> 'Vocab':
-        vocab = Vocab()
+        vocab = Vocab(tokenizer=character_tokenizer)
         with open(path + '.vocab', 'rb') as f:
             vocab.tokenizer, vocab.label2id, vocab.id2label = pickle.load(f)
         return vocab

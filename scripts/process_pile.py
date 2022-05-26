@@ -5,15 +5,20 @@ import io
 import json
 import logging
 from urllib import parse
+from typing import List
 
 import boto3
+import transformers
+from tqdm import tqdm
+
 from seal.index import FMIndex
-from seal.vocab import Vocab
+from seal.vocab import Vocab, character_tokenizer
 
 
 logger = logging.getLogger(__name__)
 
 S3_PREFIX = 's3://'
+TOKENIZER = transformers.AutoTokenizer.from_pretrained('EleutherAI/gpt-j-6B')
 
 
 def label_enumerator(prefix, iterable):
@@ -54,27 +59,27 @@ def input_iterator(input_files: str):
         yield from file_iterator(input_files)
 
 
+def janky_labeled_jsonl_iterator(
+    input_files: str,
+    labels: List[str]
+):
+    for label, line in tqdm(input_iterator(args.input_files)):
+        data = json.loads(line)
+        text = " " + data['text']  # Prefix space for tokenizer.
+        yield TOKENIZER.encode(text)
+        labels.append(label)
+
+
 def main(args):
     logger.info('Initializing vocabulary.')
-    vocab = Vocab()
     index = FMIndex()
     labels = []
-    for label, line in input_iterator(args.input_files):
-        data = json.loads(line)
-        text = data['text']
-        token_ids = vocab.encode(text)
-        index.initialize([token_ids])
-        labels.append(label)
-        break
+    iterator = janky_labeled_jsonl_iterator(args.input_files, labels)
+    logger.info('Building index...')
+    index.initialize(iterator)
     index.labels = labels
-    vocab.save(args.output_prefix)
+    logger.info('Saving outputs.')
     index.save(args.output_prefix)
-
-
-
-
-
-
 
 
 if __name__ == '__main__':
